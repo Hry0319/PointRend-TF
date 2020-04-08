@@ -356,3 +356,61 @@ class PointHead_Branch():
         with tf.variable_scope("point_scale2img", reuse=False):
             points = points * tf.constant([_H-1, _W-1], "float32")
             return points
+
+
+    def roi_mask_point_loss(self, target_cls, point_mask_logits, points_coord, gt_masks):
+        """
+        Compute the point-based loss for instance segmentation mask predictions.
+        Args:
+            crop_gt_ids (Tensor): class agnostic tensor per proposal, Integer class IDs. Zero padded.
+            point_mask_logits (Tensor): A tensor of shape (R, P, C) or (R, P, 1) for class-specific or
+                class-agnostic, where R is the total number of predicted masks in all images, C is the
+                number of foreground classes, and P is the number of points sampled for each mask.
+                The values are logits.
+            points_coords (Tensor): A tensor of shape (R, P, 2), where R is the total number of
+                predicted masks and P is the number of points for each mask. The coordinates are in
+                the image pixel coordinate space, i.e. [0, H] x [0, W].
+            gt_masks (Tensor): full size mask per proposal
+            ex:
+                target_cls:         (b, 50)  ## croped gt ids
+                point_mask_logits:  (b, 50, 588, 2)
+                points_coord:       (b, 50, 588, 2)
+                gt_masks:           (b, 50, 192, 256, 1)
+        Returns:
+            point_loss (Tensor): A scalar tensor containing the loss.
+        """
+        num_points = point_mask_logits.shape[-2]
+        batch_size, num_instance, target_H, target_W = map(int, gt_masks.shape[0:4])
+
+        with tf.name_scope("pointrend_loss"):        
+            target_cls = tf.reshape(target_cls, (-1,))
+            point_mask_logits = tf.reshape(point_mask_logits, (-1, num_points, NUM_CLASSES))
+            points_coord = tf.reshape(points_coord, (-1, num_points, 2))
+            gt_masks = tf.reshape(gt_masks, (-1, target_H, target_W, 1))
+
+            ## Only positive ROIs contribute to the loss. And only the class specific mask of each ROI.
+            positive_ix = tf.where(target_cls > 0)[:, 0] # (?,)        
+            if NUM_CLASSES > 2:
+                positive_class_ids = tf.cast(tf.gather(target_cls, positive_ix), tf.int64) # (?,)
+                indices = tf.stack([positive_ix, positive_class_ids], axis=1) # (?, 2)
+                point_mask_logits = tf.transpose(point_mask_logits, [0,2,1])
+                point_mask_logits = tf.gather_nd(point_mask_logits, indices)[..., None]
+            else:
+                point_mask_logits = tf.gather(point_mask_logits, positive_ix)[..., 1]
+            points_coord      = tf.gather(points_coord, positive_ix)
+            gt_masks          = tf.gather(gt_masks, positive_ix)        
+            # point_mask_logits: (?, 588, 1)
+            # points_coord:      (?, 588, 2)
+            # gt_masks:          (?, 192, 256, 1)
+
+            gt_mask_points = self.grid_nd_sample(gt_masks, points_coord, batch_dims=1)
+            # gt_mask_points: (?, 588, 1)        
+            gt_mask_points = tf.reshape(gt_mask_points, (-1, 1))        
+            point_mask_logits = tf.reshape(point_mask_logits, (-1, 1))
+
+            # Compute binary cross entropy. If no positive ROIs, then return 0.
+            loss = tf.cond(tf.size(positive_ix) > 0,
+                            lambda:tf.nn.sigmoid_cross_entropy_with_logits(labels=gt_mask_points, logits=point_mask_logits),
+                            lambda:tf.constant(0.0))
+                        
+            return tf.reduce_mean(loss)
