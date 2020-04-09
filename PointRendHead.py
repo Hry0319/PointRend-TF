@@ -140,15 +140,15 @@ class PointHead_Branch():
     def mask_point_head(self, fine_grained_features, coarse_features, is_training=True, reuse=False):
         with tf.variable_scope("mask_point_head"):
             net = tf.concat([fine_grained_features, coarse_features], axis=-1)    # (b*p, sample_points, c+cls)
-            net = tf.layers.Conv1D(64, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
+            net = tf.layers.Conv1D(256, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
                                   trainable=is_training, _reuse=reuse, name="lin0")(net) # (b*p, sample_points, C)
             net = tf.concat([fine_grained_features, coarse_features], axis=-1)    # (b*p, sample_points, c+cls)
 
-            net = tf.layers.Conv1D(64, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
+            net = tf.layers.Conv1D(256, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
                                   trainable=is_training, _reuse=reuse, name="lin1")(net) # (b*p, sample_points, C)
             net = tf.concat([fine_grained_features, coarse_features], axis=-1)    # (b*p, sample_points, c+cls)
 
-            net = tf.layers.Conv1D(64, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
+            net = tf.layers.Conv1D(256, kernel_size=1, activation=tf.nn.relu, use_bias=True, kernel_initializer="glorot_normal",
                                   trainable=is_training, _reuse=reuse, name="lin2")(net) # (b*p, sample_points, C)
             net = tf.concat([fine_grained_features, coarse_features], axis=-1)    # (b*p, sample_points, c+cls)
 
