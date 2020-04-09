@@ -362,13 +362,9 @@ class PointHead_Branch():
         """
         Compute the point-based loss for instance segmentation mask predictions.
         Args:
-            crop_gt_ids (Tensor): class agnostic tensor per proposal, Integer class IDs. Zero padded.
-            point_mask_logits (Tensor): A tensor of shape (R, P, C) or (R, P, 1) for class-specific or
-                class-agnostic, where R is the total number of predicted masks in all images, C is the
-                number of foreground classes, and P is the number of points sampled for each mask.
-                The values are logits.
-            points_coords (Tensor): A tensor of shape (R, P, 2), where R is the total number of
-                predicted masks and P is the number of points for each mask. The coordinates are in
+            target_cls (Tensor): class agnostic tensor per proposal, Integer class IDs. Zero padded.
+                point_mask_logits (Tensor): A tensor of shape (B, R, P, C) for class-specific.
+            points_coords (Tensor): A tensor of shape (B, R, P, 2). The coordinates are in
                 the image pixel coordinate space, i.e. [0, H] x [0, W].
             gt_masks (Tensor): full size mask per proposal
             ex:
